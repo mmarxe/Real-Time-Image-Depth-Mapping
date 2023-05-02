@@ -1,2 +1,0 @@
-# Depth Map Application
-
