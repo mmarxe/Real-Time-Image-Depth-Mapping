@@ -4,9 +4,7 @@ This is an adaptation of the AnyNet Deep Learning Model to create real time dept
 
 # Demo
 
-![Depth Map Demo](https://github.com/macsakini/Real-Time-Depth-Map-Application/blob/main/screenshots/ss1.jpeg?raw=true)
-
-<img src="https://github.com/macsakini/Real-Time-Depth-Map-Application/blob/main/screenshots/ss1.jpeg?raw=true" alt="drawing" width="100%" height="200"/>
+<img src="https://github.com/macsakini/Real-Time-Depth-Map-Application/blob/main/screenshots/ss1.jpeg?raw=true" alt="drawing" height="200"/>
 
 
 # Citation
