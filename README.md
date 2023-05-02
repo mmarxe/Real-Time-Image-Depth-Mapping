@@ -14,7 +14,7 @@ git clone https://github.com/macsakini/Real-Time-Depth-Map-Application/tree/main
 
 This implementation has been done on android and it used PyTorch lite model (PTL format). For other platforms, we have attached other model formats including TensorFlow, TensorFlow Lite and ONNX. The training notebook has also been included and is available from this link:
 
-[Model Implementation](https://github.com/macsakini/Real-Time-Image-Depth-Mapping/blob/main/ptlmodel.ipynb)
+[Model Notebook and Implementation](https://github.com/macsakini/Real-Time-Image-Depth-Mapping/blob/main/ptlmodel.ipynb)
 
 Other Model Formats
 
