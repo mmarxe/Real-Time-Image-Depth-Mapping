@@ -2,6 +2,11 @@
 
 This is an adaptation of the AnyNet Deep Learning Model to create real time depth maps from mobile devices using CameraX and PyTorch-Lite.
 
+# Demo
+
+![alt text](https://github.com/macsakini/Real-Time-Depth-Map-Application/blob/main/screenshots/ss1.jpeg?raw=true)
+
+![alt text](https://github.com/macsakini/Real-Time-Depth-Map-Application/blob/main/screenshots/ss1.jpeg?raw=true)
 
 # Citation
 ```
