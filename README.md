@@ -28,8 +28,9 @@ Other Model Formats.
 
 
 # Future Implementations
-- Optimizing Frame Rate processing.
-- Multiprocessing using threats.
+
+- Frame Rate CountdownLatch Implementation.
+- Frame Rate processing Optimisation using threads.
 - Android GPU adaptation.
 - Buffering capabilities.
 - Background processing.
