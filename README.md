@@ -1,6 +1,7 @@
 # Real-Time Image Depth Mapping
 
-This is an adaptation of the AnyNet Deep Learning Model to create real time depth maps from mobile devices using CameraX and PyTorch-Lite.
+This is an adaptation of the AnyNet Deep Learning Model approach to create real time depth maps from mobile devices using CameraX and PyTorch-Lite.
+
 
 # Installation
 
@@ -14,17 +15,24 @@ git clone https://github.com/macsakini/Real-Time-Depth-Map-Application/tree/main
 
 This implementation has been done on android and it used PyTorch lite model (PTL format). For other platforms, we have attached other model formats including TensorFlow, TensorFlow Lite and ONNX. The training notebook has also been included and is available from this link:
 
-[Model Notebook and Implementation](https://github.com/macsakini/Real-Time-Image-Depth-Mapping/blob/main/ptlmodel.ipynb)
+[Model Notebook and Implementation.](https://github.com/macsakini/Real-Time-Image-Depth-Mapping/blob/main/ptlmodel.ipynb)
 
-Other Model Formats
+Other Model Formats.
 
-[TensorFlow, TF-Lite and ONXX Formats](https://github.com/macsakini/Real-Time-Depth-Map-Application/tree/main/models)
+[TensorFlow, TF-Lite and ONXX Formats.](https://github.com/macsakini/Real-Time-Depth-Map-Application/tree/main/models)
 
 
 # Demo
 
 <img src="https://github.com/macsakini/Real-Time-Depth-Map-Application/blob/main/screenshots/ss1.jpeg?raw=true" alt="drawing" height="400"/>
 
+
+# Future Implementations
+- Optimizing Frame Rate processing.
+- Multiprocessing using threats.
+- Android GPU adaptation.
+- Buffering capabilities.
+- Background processing.
 
 # Citation
 ```
