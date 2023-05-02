@@ -13,17 +13,22 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
-import android.content.Context;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
+import android.graphics.Paint;
+import android.graphics.SurfaceTexture;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.Toast;
 
 
-import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
 
@@ -31,42 +36,26 @@ import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
 import org.pytorch.Module;
 import org.pytorch.Tensor;
-//import org.tensorflow.lite.DataType;
-//import org.tensorflow.lite.Interpreter;
-//import org.tensorflow.lite.Tensor;
-//import org.tensorflow.lite.support.common.ops.CastOp;
-//import org.tensorflow.lite.support.common.ops.NormalizeOp;
-//import org.tensorflow.lite.support.image.ImageProcessor;
-//import org.tensorflow.lite.support.image.TensorImage;
+
 
 import java.io.BufferedOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
-import java.util.function.ToIntBiFunction;
-import java.util.function.ToIntFunction;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private Button BTakePicture;
     private Button BRecord;
     PreviewView previewView;
+    ImageView depthView;
     private ImageCapture imageCapture;
     private ImageAnalysis imageAnalysis;
 
@@ -79,6 +68,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         BTakePicture = findViewById(R.id.image_capture_button);
         BRecord = findViewById(R.id.video_capture_button);
         previewView = findViewById(R.id.viewFinder);
+        depthView = findViewById(R.id.grayView);
+        depthView.setVisibility(View.GONE);
+
 
         try {
             this.prepareModelFile();
@@ -146,6 +138,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             capturePhoto();
         } else if(view.getId() == R.id.video_capture_button){
             captureDepth();
+            depthView.setVisibility(View.VISIBLE);
         }else{
             System.out.println("Done");
         }
@@ -176,7 +169,15 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void analyze(@NonNull ImageProxy imageProxy) {
                 int rotationDegrees = imageProxy.getImageInfo().getRotationDegrees();
                 try {
-                    processImage(imageProxy);
+                    Bitmap processed = processImage(imageProxy);
+                    Bitmap finalprocessed = drawDepthMapOverlay(processed);
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            depthView.setImageBitmap(finalprocessed);
+                        }
+                    });
+
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -185,6 +186,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
+    private Bitmap drawDepthMapOverlay(Bitmap bitmap) {
+        Bitmap bmpGrayscale = Bitmap.createBitmap(480, 640, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmpGrayscale);
+        Paint paint = new Paint();
+        ColorMatrix cm = new ColorMatrix();
+        cm.setSaturation(0);
+        ColorMatrixColorFilter f = new ColorMatrixColorFilter(cm);
+        paint.setColorFilter(f);
+        canvas.drawBitmap(bitmap,0,0, paint);
+        return bmpGrayscale;
+    }
 
     private void capturePhoto() {
         File photoDir = new File("/mnt/sdcard/Pictures/CameraXPhotos");
@@ -194,13 +206,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
 
         Date date = new Date();
-
         String timestamp = String.valueOf(date.getTime());
-
         String photoFilePath = photoDir.getAbsolutePath() + "/"+ timestamp+".jpg";
-
         File photoFile = new File(photoFilePath);
-
         imageCapture.takePicture(
                 new ImageCapture.OutputFileOptions.Builder(photoFile).build(),
                 getExecutor(),
@@ -218,25 +226,54 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         );
     }
 
-    public void processImage(ImageProxy imageProxy) throws IOException {
+    public Bitmap processImage(ImageProxy imageProxy) throws IOException {
         ImageProxy.PlaneProxy[] planeProxies = imageProxy.getPlanes();
         ByteBuffer rgba = planeProxies[0].getBuffer();
         byte[] arr = new byte[rgba.remaining()];
         rgba.get(arr);
-
+        
         final long[] shape = new long[]{1, 3, 640, 480};
         float[] intbuffer = bitmapFromRgba(arr);
         Module module = LiteModuleLoader.load(getFilesDir().getAbsolutePath()+"/model.ptl");
         Tensor inputTensor = Tensor.fromBlob(intbuffer, shape);
         float[] outputTensor = module.forward(IValue.from(inputTensor)).toTensor().getDataAsFloatArray();
-        System.out.println(outputTensor.length);
 
-        int[] ret = new int[outputTensor.length];
-        for (int i = 0; i < outputTensor.length; i++) {
-            ret[i] = (int) outputTensor[i];
+        
+        int[] processed_pixels = new int[outputTensor.length];
+        int j = 0;
+        for (int i = 0; i < outputTensor.length; i+=3) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+
+                int R = (int) outputTensor[i];
+                int G = (int) outputTensor[i + 1];
+                int B = (int) outputTensor[i + 2];
+
+                R = (R << 16) & 0x00FF0000;
+                G = (G << 8) & 0x0000FF00;
+                B = B & 0x000000FF;
+
+                processed_pixels[j] = Math.abs(0xFF000000 | R | G | B);
+            }
+            j+=1;
         }
-        Bitmap bitmap = Bitmap.createBitmap(ret,480, 640, Bitmap.Config.RGB_565);
-        System.out.println(bitmap.getWidth());
+//        for(int i =0; i<10;i++){
+//            System.out.println(processed_pixels[i]);
+//        }
+
+        int height = 640;
+        int width = 480;
+
+        Bitmap bitmap = Bitmap.createBitmap(480, 640, Bitmap.Config.ARGB_8888);
+        int offset = 0;
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < width; col++) {
+//                bitmap.setPixel(col, row, processed_pixels[offset]);
+                offset = offset + 1;
+            }
+        }
+        bitmap.copyPixelsFromBuffer(IntBuffer.wrap(processed_pixels));
+//        bitmap.setPixels(processed_pixels, 0, width, 0,0,width, height);
+        return bitmap;
     }
 
 
@@ -249,17 +286,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
            if(i % 3 == 0){
                continue;
            }
-           pixels[j++] = (float) bytes[i];
+           pixels[j++] = (float) (bytes[i] & 0xff);
         }
-//        System.out.println(pixels.length);
-//        System.out.println(pixels[0]+" "+ pixels[1]+" " + pixels[2]);
-
+//        for(int i =0; i<10;i++){
+//            System.out.println((float)(bytes[i] & 0xff));
+//        }
         return pixels;
-
     }
-
 }
 
+
+//        System.out.println(pixels.length);
+//        System.out.println(pixels[0]+" "+ pixels[1]+" " + pixels[2]);
 
 // Load the model from the assets directory
 
