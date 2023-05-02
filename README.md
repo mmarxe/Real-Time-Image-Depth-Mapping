@@ -8,7 +8,6 @@ Download source code and open it using Android Studio and run.
 
 ```
 git clone https://github.com/macsakini/Real-Time-Depth-Map-Application/tree/main
-
 ``` 
 
 # Demo
