@@ -1,4 +1,4 @@
-# Real-Time Depth Mapping using CNNs
+# Real-Time Image Depth Mapping
 
 This is an adaptation of the AnyNet Deep Learning Model to create real time depth maps from mobile devices using CameraX and PyTorch-Lite.
 
