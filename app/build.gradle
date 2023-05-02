@@ -38,6 +38,8 @@ android {
     }
 
     sourceSets { main { assets.srcDirs = ['src/main/assets'] } }
+
+
 }
 
 dependencies {
@@ -56,13 +58,14 @@ dependencies {
     implementation "androidx.camera:camera-mlkit-vision:${camerax_version}"
     // If you want to additionally use the CameraX Extensions library
     implementation "androidx.camera:camera-extensions:${camerax_version}"
-    implementation 'org.tensorflow:tensorflow-lite:+'
-//    ementation 'org.tensorflow:tensorflow-lite-task-vision:+'
+//    implementation 'org.tensorflow:tensorflow-lite:+'
     // Import the GPU delegate plugin Library for GPU inference
-    implementation 'org.tensorflow:tensorflow-lite-gpu-delegate-plugin:+'
-    implementation 'org.tensorflow:tensorflow-lite-gpu:+'
-    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.0'
+//    implementation 'org.tensorflow:tensorflow-lite-gpu-delegate-plugin:+'
+//    implementation 'org.tensorflow:tensorflow-lite-gpu:+'
+//    implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.0'
 
+    implementation 'org.pytorch:pytorch_android_lite:1.13.1'
+//    implementation 'org.pytorch:pytorch_android_torchvision:1.10.0'
 
     implementation 'androidx.appcompat:appcompat:1.4.1'
     implementation 'com.google.android.material:material:1.5.0'

@@ -27,13 +27,17 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
 
 
-import org.tensorflow.lite.DataType;
-import org.tensorflow.lite.Interpreter;
-import org.tensorflow.lite.Tensor;
-import org.tensorflow.lite.support.common.ops.CastOp;
-import org.tensorflow.lite.support.common.ops.NormalizeOp;
-import org.tensorflow.lite.support.image.ImageProcessor;
-import org.tensorflow.lite.support.image.TensorImage;
+import org.pytorch.IValue;
+import org.pytorch.LiteModuleLoader;
+import org.pytorch.Module;
+import org.pytorch.Tensor;
+//import org.tensorflow.lite.DataType;
+//import org.tensorflow.lite.Interpreter;
+//import org.tensorflow.lite.Tensor;
+//import org.tensorflow.lite.support.common.ops.CastOp;
+//import org.tensorflow.lite.support.common.ops.NormalizeOp;
+//import org.tensorflow.lite.support.image.ImageProcessor;
+//import org.tensorflow.lite.support.image.TensorImage;
 
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -45,6 +49,7 @@ import java.io.OutputStream;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
@@ -75,7 +80,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         BRecord = findViewById(R.id.video_capture_button);
         previewView = findViewById(R.id.viewFinder);
 
-        Log.d("Groo", String.valueOf(BTakePicture));
+        try {
+            this.prepareModelFile();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Log.d("ModelLoaded", "Model was successfully loaded into the file system");
 
         BTakePicture.setOnClickListener(this);
         BRecord.setOnClickListener(this) ;
@@ -141,7 +151,26 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    private void captureDepth() {
+    private void prepareModelFile() throws IOException {
+        AssetManager assetManager = getAssets();
+        String configDir = getFilesDir().getAbsolutePath();
+        InputStream stream = assetManager.open("model.ptl");
+        String mTFLiteModelFile = configDir +"/model.ptl";
+        OutputStream output = new BufferedOutputStream(new FileOutputStream(mTFLiteModelFile));
+        copyFile(stream, output);
+    }
+
+    public static void copyFile(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[1024];
+        int read;
+        while((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        in.close();;
+        out.close();
+    }
+
+    private void captureDepth(){
         imageAnalysis.setAnalyzer(getExecutor(), new ImageAnalysis.Analyzer() {
             @Override
             public void analyze(@NonNull ImageProxy imageProxy) {
@@ -189,36 +218,50 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         );
     }
 
-    private void prepareModelFile() throws IOException {
-        AssetManager assetManager = getAssets();
-        String configDir = getFilesDir().getAbsolutePath();
-        InputStream stream = assetManager.open("model.tflite");
-        String mTFLiteModelFile = configDir +"/model.tflite";
-        OutputStream output = new BufferedOutputStream(new FileOutputStream(mTFLiteModelFile));
-        copyFile(stream, output);
-    }
-
-    public static void copyFile(InputStream in, OutputStream out) throws IOException {
-        byte[] buffer = new byte[1024];
-        int read;
-        while((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
-        }
-        in.close();;
-        out.close();
-    }
-
-
     public void processImage(ImageProxy imageProxy) throws IOException {
         ImageProxy.PlaneProxy[] planeProxies = imageProxy.getPlanes();
-
-        System.out.println(imageProxy.getWidth() + "/"+ "/" + imageProxy.getHeight());
-
         ByteBuffer rgba = planeProxies[0].getBuffer();
-
         byte[] arr = new byte[rgba.remaining()];
         rgba.get(arr);
-        // Load the model from the assets directory
+
+        final long[] shape = new long[]{1, 3, 640, 480};
+        float[] intbuffer = bitmapFromRgba(arr);
+        Module module = LiteModuleLoader.load(getFilesDir().getAbsolutePath()+"/model.ptl");
+        Tensor inputTensor = Tensor.fromBlob(intbuffer, shape);
+        float[] outputTensor = module.forward(IValue.from(inputTensor)).toTensor().getDataAsFloatArray();
+        System.out.println(outputTensor.length);
+
+        int[] ret = new int[outputTensor.length];
+        for (int i = 0; i < outputTensor.length; i++) {
+            ret[i] = (int) outputTensor[i];
+        }
+        Bitmap bitmap = Bitmap.createBitmap(ret,480, 640, Bitmap.Config.RGB_565);
+        System.out.println(bitmap.getWidth());
+    }
+
+
+
+    public static float[] bitmapFromRgba(byte[] bytes) {
+        float pixels[] = new float[bytes.length - bytes.length/4];
+        int j = 0;
+        pixels[0] = (float) bytes[0];
+        for(int i = 1; i < bytes.length; i++){
+           if(i % 3 == 0){
+               continue;
+           }
+           pixels[j++] = (float) bytes[i];
+        }
+//        System.out.println(pixels.length);
+//        System.out.println(pixels[0]+" "+ pixels[1]+" " + pixels[2]);
+
+        return pixels;
+
+    }
+
+}
+
+
+// Load the model from the assets directory
 
 //        FileInputStream initialStream = (FileInputStream) getAssets().open("model.tflite");
 //        ByteBuffer byteBuffer = ByteBuffer.allocate(initialStream.available());
@@ -227,49 +270,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //            byteBuffer.put((byte) initialStream.read());
 //        }
 
-        prepareModelFile();
-        FileInputStream inputStream = new FileInputStream(new File(getFilesDir().getAbsolutePath()+"/model.tflite"));
-        FileChannel fileChannel = inputStream.getChannel();
-        MappedByteBuffer myMappedBuffer =  fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
+//    FileInputStream inputStream = new FileInputStream(new File(getFilesDir().getAbsolutePath()+"/model.tflite"));
+//    FileChannel fileChannel = inputStream.getChannel();
+//    MappedByteBuffer myMappedBuffer =  fileChannel.map(FileChannel.MapMode.READ_ONLY, 0, fileChannel.size());
 //
-        Interpreter interpreter = new Interpreter(myMappedBuffer);
-
-        TensorImage inputImage = TensorImage.fromBitmap(imageProxy.toBitmap());
-
-        ImageProcessor processor = new ImageProcessor.Builder()
-                .add(new CastOp(DataType.FLOAT32))
-                .add(new NormalizeOp(100, 100))
-                .build();
-
-        processor.process(inputImage);
-
-        TensorImage outputImage = new TensorImage(DataType.FLOAT32);
-
-        interpreter.run(inputImage.getBuffer(), outputImage);
-
-        // Get the output tensor data as a float array
-//        float[] outputData = outputTensor.getDataAsFloatArray();
-
-    }
-
-    public static Bitmap bitmapFromRgba(byte[] bytes) {
-        int pixels[] = new int[bytes.length - bytes.length/4];
-        int j = 0;
-        pixels[0] = (int) bytes[0];
-        for(int i = 1; i < bytes.length; i++){
-           if(i%3 == 0){
-               continue;
-           }
-           pixels[j++] = (int) bytes[i];
-        }
-
-
-        System.out.println(pixels.length);
-        System.out.println(pixels[0]+" "+ pixels[1]+" " + pixels[2]);
-
-        Bitmap bitmap = Bitmap.createBitmap(pixels,480, 640, Bitmap.Config.ALPHA_8);
-
-        return bitmap;
-    }
-
-}
+//        Interpreter interpreter = new Interpreter(myMappedBuffer);
+//
+//        TensorImage inputImage = TensorImage.fromBitmap(imageProxy.toBitmap());
+//
+//        ImageProcessor processor = new ImageProcessor.Builder()
+//                .add(new CastOp(DataType.FLOAT32))
+//                .add(new NormalizeOp(100, 100))
+//                .build();
+//
+//        processor.process(inputImage);
+//
+//        TensorImage outputImage = new TensorImage(DataType.FLOAT32);
+//
+//        interpreter.run(inputImage.getBuffer(), outputImage);
+//
+//        // Get the output tensor data as a float array
+////        float[] outputData = outputTensor.getDataAsFloatArray();
